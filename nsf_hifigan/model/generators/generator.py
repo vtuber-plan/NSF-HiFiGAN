@@ -9,6 +9,10 @@ from torch.nn import functional as F
 
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 
+from nsf_hifigan.model.generators.cond_module import CondModuleHnSincNSF
+from nsf_hifigan.model.generators.filter_module import FilterModuleHnSincNSF
+from nsf_hifigan.model.generators.source_module import SourceModuleHnNSF
+
 class NSFHiFiGANGenerator(torch.nn.Module):
     """ Model definition
     """
@@ -59,7 +63,7 @@ class NSFHiFiGANGenerator(torch.nn.Module):
                                               self.cnn_kernel_s, \
                                               self.cnn_num_in_block)
         # loss function on spectra
-        self.m_aux_loss = LossAuxGen()
+        # self.m_aux_loss = LossAuxGen()
 
         # done
         return

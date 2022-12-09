@@ -13,11 +13,9 @@ import torchmetrics
 
 from .discriminators.multi_scale_discriminator import MultiScaleDiscriminator
 from .discriminators.multi_period_discriminator import MultiPeriodDiscriminator
-from .discriminators.spectrogram_discriminator import SpectrogramDiscriminator
-from .generators.generator import Generator
+from .generators.generator import NSFHiFiGANGenerator
 
-from ..mel_processing import spec_to_mel_torch, mel_spectrogram_torch, spectrogram_torch, spectrogram_torch_audio
-from .losses import discriminator_loss, kl_loss,feature_loss, generator_loss
+from .loss import discriminator_loss, kl_loss,feature_loss, generator_loss
 from .. import utils
 from .commons import slice_segments, rand_slice_segments, sequence_mask, clip_grad_value_
 from .pipeline import AudioPipeline
@@ -27,16 +25,7 @@ class NSF_HifiGAN(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters(*[k for k in kwargs])
 
-        self.net_g = Generator(
-            self.hparams.model.inter_channels,
-            self.hparams.model.resblock_kernel_sizes,
-            self.hparams.model.resblock_dilation_sizes,
-            self.hparams.model.upsample_rates,
-            self.hparams.model.upsample_initial_channel,
-            self.hparams.model.upsample_kernel_sizes,
-            self.hparams.model.upsample_dilation_sizes,
-            self.hparams.model.pre_kernel_size,
-            self.hparams.model.post_kernel_size
+        self.net_g = NSFHiFiGANGenerator(
         )
         self.net_period_d = MultiPeriodDiscriminator(
             periods=self.hparams.model.multi_period_discriminator_periods,

@@ -10,8 +10,6 @@ import random
 
 import numpy as np
 
-from ..mel_processing import hann_window
-
 class GaussianNoise(torch.nn.Module):
     def __init__(self, min_snr=0.0001, max_snr=0.01):
         """

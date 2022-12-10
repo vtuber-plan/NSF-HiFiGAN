@@ -52,7 +52,7 @@ class TimeVarFIRFilter(nn.Module):
         # roll and weighted sum, only take [0:signal_length]
         for k in range(order_k):
             y += torch.roll(padded_signal, k, dims=1)[:, 0:signal_l, :] \
-                      * f_coef[:, :, k:k+1] 
+                      * f_coef[:, :, k:k+1]
         # done
         return y
 
@@ -114,10 +114,8 @@ class SincFilter(nn.Module):
         x[:, :, self.half_order] -> time index = 0, sinc(0)=1
         """
         y = torch.zeros_like(x)
-        y[:,:,0:self.half_k]=torch.sin(np.pi * x[:, :, 0:self.half_k]) \
-                              / (np.pi * x[:, :, 0:self.half_k])
-        y[:,:,self.half_k+1:]=torch.sin(np.pi * x[:, :, self.half_k+1:]) \
-                               / (np.pi * x[:, :, self.half_k+1:])
+        y[:,:,0:self.half_k]=torch.sin(np.pi * x[:, :, 0:self.half_k]) / (np.pi * x[:, :, 0:self.half_k])
+        y[:,:,self.half_k+1:]=torch.sin(np.pi * x[:, :, self.half_k+1:]) / (np.pi * x[:, :, self.half_k+1:])
         y[:,:,self.half_k] = 1
         return y
         
@@ -151,8 +149,7 @@ class SincFilter(nn.Module):
             tmp_one = torch.pow(-1, hp_coef)
             
         # unnormalized filter coefs with hamming window
-        lp_coef = cut_f * self.sinc(cut_f * lp_coef) \
-                  * self.hamming_w(lp_coef)
+        lp_coef = cut_f * self.sinc(cut_f * lp_coef) * self.hamming_w(lp_coef)
         
         hp_coef = (self.sinc(hp_coef) \
                    - cut_f * self.sinc(cut_f * hp_coef)) \
@@ -173,8 +170,7 @@ class SincFilter(nn.Module):
 class NeuralFilterBlock(nn.Module):
     """ Wrapper over a single filter block
     """
-    def __init__(self, signal_size, hidden_size,\
-                 kernel_size=3, conv_num=10):
+    def __init__(self, signal_size, hidden_size, kernel_size=3, conv_num=10):
         super(NeuralFilterBlock, self).__init__()
         self.signal_size = signal_size
         self.hidden_size = hidden_size
@@ -183,13 +179,11 @@ class NeuralFilterBlock(nn.Module):
         self.dilation_s = [np.power(2, x) for x in np.arange(conv_num)]
 
         # ff layer to expand dimension
-        self.l_ff_1 = nn.Linear(signal_size, hidden_size, \
-                                      bias=False)
+        self.l_ff_1 = nn.Linear(signal_size, hidden_size, bias=False)
         self.l_ff_1_tanh = nn.Tanh()
         
         # dilated conv layers
-        tmp = [Conv1dKeepLength(hidden_size, hidden_size, x, \
-                                kernel_size, causal=True, bias=False) \
+        tmp = [Conv1dKeepLength(hidden_size, hidden_size, x, kernel_size, causal=True, bias=False) \
                for x in self.dilation_s]
         self.l_convs = nn.ModuleList(tmp)
                 
@@ -200,12 +194,11 @@ class NeuralFilterBlock(nn.Module):
         self.l_ff_3_tanh = nn.Tanh()        
 
         # a simple scale
-        self.scale = nn.Parameter(torch.tensor([1/len(self.l_convs)]), 
-                                        requires_grad=False)
+        self.scale = nn.Parameter(torch.tensor([1/len(self.l_convs)]), requires_grad=False)
         return
 
     def forward(self, signal, context):
-        """ 
+        """
         Assume: signal (batchsize=1, length, signal_size)
                 context (batchsize=1, length, hidden_size)
         Output: (batchsize=1, length, signal_size)
@@ -274,12 +267,8 @@ class FilterModuleHnSincNSF(nn.Module):
         # sinc filter generators and time-variant filtering layer
         self.l_sinc_coef = SincFilter(self.sinc_order)
         self.l_tv_filtering = TimeVarFIRFilter()
-        # done
-        
 
     def forward(self, har_component, noi_component, cond_feat, cut_f):
-        """
-        """
         # harmonic component
         for l_har_block in self.l_har_blocks:
             har_component = l_har_block(har_component, cond_feat)

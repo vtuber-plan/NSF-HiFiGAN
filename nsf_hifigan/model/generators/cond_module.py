@@ -74,13 +74,9 @@ class CondModuleHnSincNSF(nn.Module):
         self.l_blstm = nn.LSTM(input_dim, self.blstm_s // 2, bidirectional=True, batch_first=True)
 
         # the CNN layer (+1 dim for cut_off_frequence of sinc filter)
-        self.l_conv1d = Conv1dKeepLength(self.blstm_s, \
-                                         self.output_dim, \
-                                         dilation_s = 1, \
-                                         kernel_s = self.cnn_kernel_s)
+        self.l_conv1d = Conv1dKeepLength(self.blstm_s, self.output_dim, dilation_s = 1, kernel_s = self.cnn_kernel_s)
         # Upsampling layer for hidden features
-        self.l_upsamp = UpSampleLayer(self.output_dim, \
-                                      self.up_sample, True)
+        self.l_upsamp = UpSampleLayer(self.output_dim, self.up_sample, True)
         # separate layer for up-sampling normalized F0 values
         self.l_upsamp_f0_hi = UpSampleLayer(1, self.up_sample, True)
         
@@ -112,14 +108,12 @@ class CondModuleHnSincNSF(nn.Module):
         
         spec: (batchsize, length, self.output_dim), at wave-level
         f0: (batchsize, length, 1), at wave-level
-        """ 
+        """
         feature_h, feature_c = self.l_blstm(feature)
         tmp = self.l_upsamp(self.l_conv1d(feature_h))
-        
+        tmp_f0 = self.l_upsamp_f0_hi(f0)
         # concatenat normed F0 with hidden spectral features
-        context = torch.cat((tmp[:, :, 0:self.output_dim-1], \
-                             self.l_upsamp_f0_hi(feature[:, :, -1:])), \
-                            dim=2)
+        context = torch.cat((tmp[:, :, :-1], tmp_f0), dim=2)
         
         # hidden feature for cut-off frequency
         hidden_cut_f = tmp[:, :, self.output_dim-1:]

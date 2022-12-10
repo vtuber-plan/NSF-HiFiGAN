@@ -20,7 +20,7 @@ class MelCollate():
         y_wav_lengths = torch.LongTensor(len(batch))
 
         x_wav_padded = torch.zeros(len(batch), 1, max_x_wav_len, dtype=torch.float32)
-        x_pitch_padded = torch.zeros(len(batch), max_x_pitch_len, dtype=torch.long)
+        x_pitch_padded = torch.zeros(len(batch), max_x_pitch_len, dtype=torch.float32)
         y_wav_padded = torch.zeros(len(batch), 1, max_y_wav_len, dtype=torch.float32)
 
         for i in range(len(ids_sorted_decreasing)):
@@ -41,6 +41,8 @@ class MelCollate():
         ret = {
             "x_wav_values": x_wav_padded,
             "x_wav_lengths": x_wav_lengths,
+            "x_pitch_values": x_pitch_padded,
+            "x_pitch_lengths": x_pitch_lengths,
             "y_wav_values": y_wav_padded,
             "y_wav_lengths": y_wav_lengths,
         }

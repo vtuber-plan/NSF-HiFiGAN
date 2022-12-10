@@ -72,6 +72,7 @@ class NSFHiFiGANGenerator(torch.nn.Module):
         Assume x (batchsize=1, length, dim)
         Return output(batchsize=1, length)
         """
+        f0 = f0.unsqueeze(2)
         # condition module
         # feature-to-filter-block, f0-up-sampled, cut-off-f-for-sinc,
         # hidden-feature-for-cut-off-f

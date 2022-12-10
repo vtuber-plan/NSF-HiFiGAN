@@ -30,7 +30,7 @@ class NSF_HifiGAN(pl.LightningModule):
 
         self.net_g = NSFHiFiGANGenerator(
             in_dim = self.hparams.data.n_mel_channels,
-            out_dim = self.hparams.data.n_mel_channels,
+            out_dim = 1,
             upsampling_rate = self.hparams.data.hop_length,
             sampling_rate = self.hparams.data.sampling_rate,
         )
@@ -49,10 +49,11 @@ class NSF_HifiGAN(pl.LightningModule):
             param.requires_grad = False
         
         # metrics
-        self.valid_mel_loss = torchmetrics.MeanMetric()
+        self.valid_spec_loss = torchmetrics.MeanMetric()
 
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int, optimizer_idx: int):
         x_wav, x_wav_lengths = batch["x_wav_values"], batch["x_wav_lengths"]
+        x_pitch, x_pitch_lengths = batch["x_pitch_values"], batch["x_pitch_lengths"]
         y_wav, y_wav_lengths = batch["y_wav_values"], batch["y_wav_lengths"]
         
         with torch.inference_mode():
@@ -72,7 +73,7 @@ class NSF_HifiGAN(pl.LightningModule):
         )
 
         # generator forward
-        y_hat = self.net_g(x_mel)
+        y_hat = self.net_g(x_mel.transpose(1,2), x_pitch).transpose(1,2)
 
         y_spec_hat = spectrogram_torch_audio(
             y_hat.squeeze(1).float(),
@@ -158,6 +159,7 @@ class NSF_HifiGAN(pl.LightningModule):
         self.net_g.eval()
         
         x_wav, x_wav_lengths = batch["x_wav_values"], batch["x_wav_lengths"]
+        x_pitch, x_pitch_lengths = batch["x_pitch_values"], batch["x_pitch_lengths"]
         y_wav, y_wav_lengths = batch["y_wav_values"], batch["y_wav_lengths"]
         
         with torch.inference_mode():
@@ -172,11 +174,17 @@ class NSF_HifiGAN(pl.LightningModule):
         y_spec_lengths = (y_wav_lengths / self.hparams.data.hop_length).long()
 
         # remove else
-        y_wav_hat = self.net_g(x_mel.transpose(1,2))
+        y_wav_hat = self.net_g(x_mel.transpose(1,2), x_pitch).transpose(1,2)
         y_hat_lengths = torch.tensor([y_wav_hat.shape[2]], dtype=torch.long)
 
+        y_spec_hat = spectrogram_torch_audio(y_wav_hat.squeeze(1),
+            self.hparams.data.filter_length,
+            self.hparams.data.sampling_rate,
+            self.hparams.data.hop_length,
+            self.hparams.data.win_length, center=False)
+
         image_dict = {
-            "gen/spec": utils.plot_spectrogram_to_numpy(y_mel_hat[0].cpu().numpy()),
+            "gen/spec": utils.plot_spectrogram_to_numpy(y_spec_hat[0].cpu().numpy()),
             "gt/spec": utils.plot_spectrogram_to_numpy(y_spec[0].cpu().numpy())
         }
         audio_dict = {
@@ -184,14 +192,14 @@ class NSF_HifiGAN(pl.LightningModule):
             "gt/audio": y_wav[0,:,:y_wav_lengths[0]].squeeze(0).float()
         }
 
-        mel_mask = torch.unsqueeze(sequence_mask(x_mel_lengths.long(), y_mel.size(2)), 1).to(y_mel.dtype)
+        spec_mask = torch.unsqueeze(sequence_mask(x_mel_lengths.long(), y_spec.size(2)), 1).to(y_spec.dtype)
 
         # metrics compute
-        y_mel_masked = y_mel * mel_mask
-        y_mel_masked_hat = y_mel_hat * mel_mask
-        valid_mel_loss_step = F.l1_loss(y_mel_masked_hat, y_mel_masked)
-        self.valid_mel_loss.update(valid_mel_loss_step.item())
-        self.log("valid/loss_mel_step", valid_mel_loss_step.item(), sync_dist=True)
+        y_spec_masked = y_spec * spec_mask
+        y_spec_masked_hat = y_spec_hat * spec_mask
+        valid_spec_loss_step = F.l1_loss(y_spec_masked_hat, y_spec_masked)
+        self.valid_spec_loss.update(valid_spec_loss_step.item())
+        self.log("valid/loss_spec_step", valid_spec_loss_step.item(), sync_dist=True)
 
         # logging
         tensorboard = self.logger.experiment
@@ -205,9 +213,9 @@ class NSF_HifiGAN(pl.LightningModule):
     
     def validation_epoch_end(self, outputs) -> None:
         self.net_g.eval()
-        valid_mel_loss_epoch = self.valid_mel_loss.compute()
-        self.log("valid/loss_mel_epoch", valid_mel_loss_epoch.item(), sync_dist=True)
-        self.valid_mel_loss.reset()
+        valid_spec_loss_epoch = self.valid_spec_loss.compute()
+        self.log("valid/loss_spec_epoch", valid_spec_loss_epoch.item(), sync_dist=True)
+        self.valid_spec_loss.reset()
 
     def configure_optimizers(self):
         self.optim_g = torch.optim.AdamW(

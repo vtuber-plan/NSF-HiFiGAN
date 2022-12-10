@@ -1,41 +1,46 @@
 {
     "trainer": {
-      "max_epochs": 20000,
-      "accumulate_grad_batches": 2,
-      "default_root_dir": "./logs_48k",
-      "val_check_interval": 1.0,
-      "gradient_clip_val": 0.5
+        "max_epochs": 20000,
+        "accumulate_grad_batches": 2,
+        "default_root_dir": "./logs_48k",
+        "val_check_interval": 1.0,
+        "gradient_clip_val": 0.5
     },
     "train": {
-      "log_interval": 200,
-      "eval_interval": 1000,
-      "seed": 1234,
-      "max_epochs": 20000,
-      "generator_learning_rate": 0.0002,
-      "discriminator_learning_rate": 0.0002,
-      "betas": [0.8, 0.99],
-      "eps": 1e-9,
-      "batch_size": 32,
-      "fp16_run": true,
-      "lr_decay": 0.999875,
-      "segment_size": 16384,
-      "init_lr_ratio": 1,
-      "warmup_epochs": 0,
-      "c_mel": 0,
-      "c_spec": 45
+        "log_interval": 200,
+        "eval_interval": 1000,
+        "seed": 1234,
+        "max_epochs": 20000,
+        "generator_learning_rate": 0.0002,
+        "discriminator_learning_rate": 0.0002,
+        "betas": [
+            0.8,
+            0.99
+        ],
+        "eps": 1e-9,
+        "batch_size": 32,
+        "fp16_run": true,
+        "lr_decay": 0.999875,
+        "segment_size": 16384,
+        "init_lr_ratio": 1,
+        "warmup_epochs": 0,
+        "c_mel": 0,
+        "c_spec": 45
     },
     "data": {
-      "training_files": "filelists/48k_audio_filelist_train.txt",
-      "validation_files": "filelists/48k_audio_filelist_valid.txt",
-      "sampling_rate": 48000,
-      "filter_length": 2048,
-      "hop_length": 512,
-      "win_length": 2048,
-      "n_mel_channels": 128,
-      "mel_fmin": 0.0,
-      "mel_fmax": null
+        "training_files": "filelists/48k_audio_filelist_train.txt",
+        "validation_files": "filelists/48k_audio_filelist_valid.txt",
+        "sampling_rate": 48000,
+        "filter_length": 2048,
+        "hop_length": 512,
+        "win_length": 2048,
+        "n_mel_channels": 128,
+        "mel_fmin": 0.0,
+        "mel_fmax": null,
+        "num_pitch": 512
     },
     "model": {
-      
+        "use_spectral_norm": false,
+        "multi_period_discriminator_periods": [2,3,5,7,11,13,17,19,23,37]
     }
-  }
+}

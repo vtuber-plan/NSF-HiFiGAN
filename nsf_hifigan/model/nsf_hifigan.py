@@ -11,6 +11,8 @@ import torchaudio.transforms as T
 import pytorch_lightning as pl
 import torchmetrics
 
+from nsf_hifigan.mel_processing import spectrogram_torch_audio
+
 from .discriminators.multi_scale_discriminator import MultiScaleDiscriminator
 from .discriminators.multi_period_discriminator import MultiPeriodDiscriminator
 from .generators.generator import NSFHiFiGANGenerator
@@ -18,6 +20,7 @@ from .generators.generator import NSFHiFiGANGenerator
 from .loss import discriminator_loss, kl_loss,feature_loss, generator_loss
 from .. import utils
 from .commons import slice_segments, rand_slice_segments, sequence_mask, clip_grad_value_
+
 from .pipeline import AudioPipeline
 
 class NSF_HifiGAN(pl.LightningModule):
@@ -26,6 +29,10 @@ class NSF_HifiGAN(pl.LightningModule):
         self.save_hyperparameters(*[k for k in kwargs])
 
         self.net_g = NSFHiFiGANGenerator(
+            in_dim = self.hparams.data.n_mel_channels,
+            out_dim = self.hparams.data.n_mel_channels,
+            upsampling_rate = self.hparams.data.hop_length,
+            sampling_rate = self.hparams.data.sampling_rate,
         )
         self.net_period_d = MultiPeriodDiscriminator(
             periods=self.hparams.model.multi_period_discriminator_periods,
@@ -76,17 +83,6 @@ class NSF_HifiGAN(pl.LightningModule):
             False
         )
 
-        y_mel_hat = mel_spectrogram_torch(
-            y_hat.squeeze(1).float(),
-            self.hparams.data.filter_length,
-            self.hparams.data.n_mel_channels,
-            self.hparams.data.sampling_rate,
-            self.hparams.data.hop_length,
-            self.hparams.data.win_length,
-            self.hparams.data.mel_fmin,
-            self.hparams.data.mel_fmax
-        )
-
         # Discriminator
         if optimizer_idx == 0:
             # MPD
@@ -129,22 +125,10 @@ class NSF_HifiGAN(pl.LightningModule):
             loss_s_fm = feature_loss(fmap_s_r, fmap_s_g)
             loss_s_gen, losses_s_gen = generator_loss(y_ds_hat_g)
 
-            y_mel = mel_spectrogram_torch(
-                y_wav.squeeze(1).float(),
-                self.hparams.data.filter_length,
-                self.hparams.data.n_mel_channels,
-                self.hparams.data.sampling_rate,
-                self.hparams.data.hop_length,
-                self.hparams.data.win_length,
-                self.hparams.data.mel_fmin,
-                self.hparams.data.mel_fmax
-            )
-
             # mel
             loss_spec = F.l1_loss(y_spec_hat, y_spec) * self.hparams.train.c_spec
-            loss_mel = F.l1_loss(y_mel_hat, y_mel) * self.hparams.train.c_mel
 
-            loss_gen_all = (loss_s_gen + loss_s_fm) + (loss_p_gen + loss_p_fm) + loss_spec + loss_mel
+            loss_gen_all = (loss_s_gen + loss_s_fm) + (loss_p_gen + loss_p_fm) + loss_spec
 
             # Logging to TensorBoard by default
             lr = self.optim_g.param_groups[0]['lr']
@@ -154,7 +138,6 @@ class NSF_HifiGAN(pl.LightningModule):
                 "train/g/s_fm": loss_s_fm,
                 "train/g/p_gen": loss_p_gen,
                 "train/g/s_gen": loss_s_gen,
-                "train/g/loss_mel": loss_mel,
                 "train/g/loss_spec": loss_spec,
             })
 
@@ -189,29 +172,12 @@ class NSF_HifiGAN(pl.LightningModule):
         y_spec_lengths = (y_wav_lengths / self.hparams.data.hop_length).long()
 
         # remove else
-        y_wav_hat = self.net_g(x_mel)
+        y_wav_hat = self.net_g(x_mel.transpose(1,2))
         y_hat_lengths = torch.tensor([y_wav_hat.shape[2]], dtype=torch.long)
 
-        y_mel = spec_to_mel_torch(
-            y_spec, 
-            self.hparams.data.filter_length, 
-            self.hparams.data.n_mel_channels, 
-            self.hparams.data.sampling_rate,
-            self.hparams.data.mel_fmin, 
-            self.hparams.data.mel_fmax)
-        y_mel_hat = mel_spectrogram_torch(
-            y_wav_hat.squeeze(1).float(),
-            self.hparams.data.filter_length,
-            self.hparams.data.n_mel_channels,
-            self.hparams.data.sampling_rate,
-            self.hparams.data.hop_length,
-            self.hparams.data.win_length,
-            self.hparams.data.mel_fmin,
-            self.hparams.data.mel_fmax
-        )
         image_dict = {
-            "gen/mel": utils.plot_spectrogram_to_numpy(y_mel_hat[0].cpu().numpy()),
-            "gt/mel": utils.plot_spectrogram_to_numpy(y_mel[0].cpu().numpy())
+            "gen/spec": utils.plot_spectrogram_to_numpy(y_mel_hat[0].cpu().numpy()),
+            "gt/spec": utils.plot_spectrogram_to_numpy(y_spec[0].cpu().numpy())
         }
         audio_dict = {
             "gen/audio": y_wav_hat[0,:,:y_hat_lengths[0]].squeeze(0).float(),

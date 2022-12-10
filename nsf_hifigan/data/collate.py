@@ -12,12 +12,15 @@ class MelCollate():
             dim=0, descending=True)
 
         max_x_wav_len = max([x["wav"].size(1) for x in batch])
+        max_x_pitch_len = max([x["pitch"].size(1) for x in batch])
         max_y_wav_len = max([x["wav"].size(1) for x in batch])
 
         x_wav_lengths = torch.LongTensor(len(batch))
+        x_pitch_lengths = torch.LongTensor(len(batch))
         y_wav_lengths = torch.LongTensor(len(batch))
 
         x_wav_padded = torch.zeros(len(batch), 1, max_x_wav_len, dtype=torch.float32)
+        x_pitch_padded = torch.zeros(len(batch), max_x_pitch_len, dtype=torch.long)
         y_wav_padded = torch.zeros(len(batch), 1, max_y_wav_len, dtype=torch.float32)
 
         for i in range(len(ids_sorted_decreasing)):
@@ -26,6 +29,10 @@ class MelCollate():
             wav = row["wav"]
             x_wav_padded[i, :, :wav.size(1)] = wav
             x_wav_lengths[i] = wav.size(1)
+
+            pitch = row["pitch"]
+            x_pitch_padded[i, :pitch.size(1)] = pitch
+            x_pitch_lengths[i] = pitch.size(1)
 
             wav = row["wav"]
             y_wav_padded[i, :, :wav.size(1)] = wav

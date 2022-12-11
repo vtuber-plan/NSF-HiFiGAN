@@ -61,6 +61,7 @@ class NSF_HifiGAN(pl.LightningModule):
             x_mel_lengths = (x_wav_lengths / self.hparams.data.hop_length).long()
 
         x_mel, ids_slice = rand_slice_segments(x_mel, x_mel_lengths, self.hparams.train.segment_size // self.hparams.data.hop_length)
+        x_pitch = slice_segments(x_pitch.unsqueeze(1), ids_slice, self.hparams.train.segment_size // self.hparams.data.hop_length).squeeze(1) # slice
         y_wav = slice_segments(y_wav, ids_slice * self.hparams.data.hop_length, self.hparams.train.segment_size) # slice
 
         y_spec = spectrogram_torch_audio(
